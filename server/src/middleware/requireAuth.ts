@@ -1,6 +1,6 @@
 import type { NextFunction, Request, Response } from "express";
 import { verifyToken } from "../auth.js";
-import { db } from "../db/index.js";
+import { pool } from "../db/index.js";
 
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -12,7 +12,7 @@ declare global {
   }
 }
 
-export function requireAuth(req: Request, res: Response, next: NextFunction) {
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
   const header = req.headers.authorization;
   if (!header?.startsWith("Bearer ")) {
     return res.status(401).json({ error: "Missing authorization token" });
@@ -20,12 +20,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   try {
     const payload = verifyToken(header.slice("Bearer ".length));
     req.userId = payload.userId;
-    const membership = db
-      .prepare<[number], { family_id: number }>(
-        "SELECT family_id FROM family_members WHERE user_id = ?"
-      )
-      .get(payload.userId);
-    req.familyId = membership ? membership.family_id : null;
+    const { rows } = await pool.query<{ family_id: number }>(
+      "SELECT family_id FROM family_members WHERE user_id = $1",
+      [payload.userId]
+    );
+    req.familyId = rows[0] ? rows[0].family_id : null;
     next();
   } catch {
     return res.status(401).json({ error: "Invalid or expired token" });

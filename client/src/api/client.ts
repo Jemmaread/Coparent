@@ -1,4 +1,5 @@
 const TOKEN_KEY = 'coparent_token';
+const API_BASE = import.meta.env.VITE_API_URL ? `${import.meta.env.VITE_API_URL}/api` : '/api';
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
@@ -19,7 +20,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   };
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`/api${path}`, { ...options, headers });
+  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   if (res.status === 204) return undefined as T;
 
   const body = await res.json().catch(() => ({}));
