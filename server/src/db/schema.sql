@@ -11,8 +11,11 @@ CREATE TABLE IF NOT EXISTS families (
   id SERIAL PRIMARY KEY,
   name TEXT NOT NULL,
   invite_code TEXT NOT NULL UNIQUE,
+  combined_child_color TEXT NOT NULL DEFAULT '#14b8a6',
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+ALTER TABLE families ADD COLUMN IF NOT EXISTS combined_child_color TEXT NOT NULL DEFAULT '#14b8a6';
 
 CREATE TABLE IF NOT EXISTS family_members (
   id SERIAL PRIMARY KEY,
@@ -49,6 +52,18 @@ CREATE TABLE IF NOT EXISTS events (
 );
 
 CREATE INDEX IF NOT EXISTS idx_events_family_range ON events(family_id, start_time, end_time);
+
+-- Which children an activity applies to (0, 1, or many). Replaces the legacy
+-- single events.child_id column, which is kept around unused for old rows.
+CREATE TABLE IF NOT EXISTS event_children (
+  event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+  child_id INTEGER NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+  PRIMARY KEY (event_id, child_id)
+);
+
+INSERT INTO event_children (event_id, child_id)
+SELECT id, child_id FROM events WHERE child_id IS NOT NULL
+ON CONFLICT DO NOTHING;
 
 -- status: 'pending' | 'accepted' | 'declined' | 'cancelled'
 CREATE TABLE IF NOT EXISTS swap_requests (

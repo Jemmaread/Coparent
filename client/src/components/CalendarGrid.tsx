@@ -8,13 +8,15 @@ import {
   startOfMonth,
   startOfWeek,
 } from 'date-fns';
-import type { CalendarEvent, User } from '../types';
+import type { CalendarEvent, Child, Family, User } from '../types';
 import { eventBg, eventColor } from '../utils/eventStyle';
 
 interface Props {
   month: Date;
   events: CalendarEvent[];
   members: User[];
+  children: Child[];
+  family: Family | null;
   onDayClick: (day: Date) => void;
   onEventClick: (event: CalendarEvent) => void;
 }
@@ -33,7 +35,15 @@ function eventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
   });
 }
 
-export default function CalendarGrid({ month, events, members, onDayClick, onEventClick }: Props) {
+export default function CalendarGrid({
+  month,
+  events,
+  members,
+  children: familyChildren,
+  family,
+  onDayClick,
+  onEventClick,
+}: Props) {
   const gridStart = startOfWeek(startOfMonth(month));
   const gridEnd = endOfWeek(endOfMonth(month));
   const days = eachDayOfInterval({ start: gridStart, end: gridEnd });
@@ -100,8 +110,8 @@ export default function CalendarGrid({ month, events, members, onDayClick, onEve
                     style={{
                       textAlign: 'left',
                       border: 'none',
-                      borderLeft: `3px solid ${eventColor(ev, members)}`,
-                      background: eventBg(ev, members),
+                      borderLeft: `3px solid ${eventColor(ev, members, familyChildren, family)}`,
+                      background: eventBg(ev, members, familyChildren, family),
                       color: 'var(--text-h)',
                       borderRadius: 4,
                       padding: '2px 5px',

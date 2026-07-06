@@ -8,15 +8,17 @@ import CalendarGrid from '../components/CalendarGrid';
 import EventModal from '../components/EventModal';
 import ProposeSwapModal from '../components/ProposeSwapModal';
 import SwapRequestsPanel from '../components/SwapRequestsPanel';
+import AssignCustodyModal from '../components/AssignCustodyModal';
 
 export default function CalendarPage() {
-  const { members } = useAuth();
+  const { members, children, family } = useAuth();
   const [month, setMonth] = useState(() => new Date());
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [swaps, setSwaps] = useState<SwapRequest[]>([]);
   const [modalDate, setModalDate] = useState<Date | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
   const [swapTarget, setSwapTarget] = useState<CalendarEvent | null>(null);
+  const [assigningCustody, setAssigningCustody] = useState(false);
 
   const loadEvents = useCallback(async () => {
     const start = startOfWeek(startOfMonth(month));
@@ -69,12 +71,17 @@ export default function CalendarPage() {
     await Promise.all([loadSwaps(), loadEvents()]);
   }
 
+  async function handleCustodyAssigned() {
+    setAssigningCustody(false);
+    await loadEvents();
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Header />
       <main style={{ flex: 1, padding: 24, display: 'grid', gridTemplateColumns: '1fr 300px', gap: 20, alignItems: 'start' }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14, flexWrap: 'wrap', gap: 10 }}>
             <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
               <button className="btn btn-sm" onClick={() => setMonth((m) => subMonths(m, 1))}>
                 ←
@@ -86,6 +93,9 @@ export default function CalendarPage() {
             </div>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
               <Legend />
+              <button className="btn btn-sm" onClick={() => setAssigningCustody(true)}>
+                Assign custody days
+              </button>
               <button className="btn btn-primary btn-sm" onClick={() => setModalDate(new Date())}>
                 + New event
               </button>
@@ -95,6 +105,8 @@ export default function CalendarPage() {
             month={month}
             events={events}
             members={members}
+            children={children}
+            family={family}
             onDayClick={(day) => setModalDate(day)}
             onEventClick={(event) => setEditingEvent(event)}
           />
@@ -115,6 +127,10 @@ export default function CalendarPage() {
 
       {swapTarget && (
         <ProposeSwapModal relatedEvent={swapTarget} onClose={() => setSwapTarget(null)} onCreated={handleSwapCreated} />
+      )}
+
+      {assigningCustody && (
+        <AssignCustodyModal onClose={() => setAssigningCustody(false)} onAssigned={handleCustodyAssigned} />
       )}
     </div>
   );
