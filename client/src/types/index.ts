@@ -9,6 +9,7 @@ export interface Family {
   id: number;
   name: string;
   invite_code: string;
+  combined_child_color: string;
   created_at: string;
 }
 
@@ -33,6 +34,7 @@ export interface CalendarEvent {
   end_time: string;
   all_day: number;
   child_id: number | null;
+  child_ids: number[];
   owner_parent_id: number | null;
   created_at: string;
   updated_at: string;

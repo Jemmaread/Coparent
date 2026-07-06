@@ -11,6 +11,7 @@ export interface FamilyRow {
   id: number;
   name: string;
   invite_code: string;
+  combined_child_color: string;
   created_at: string;
 }
 
@@ -39,6 +40,10 @@ export interface EventRow {
   owner_parent_id: number | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface EventResponse extends EventRow {
+  child_ids: number[];
 }
 
 export type SwapStatus = "pending" | "accepted" | "declined" | "cancelled";

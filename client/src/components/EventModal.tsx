@@ -34,7 +34,7 @@ export default function EventModal({
   const [allDay, setAllDay] = useState(!!editingEvent?.all_day);
   const [start, setStart] = useState(toInputValue(initialStart));
   const [end, setEnd] = useState(toInputValue(initialEnd));
-  const [childId, setChildId] = useState<string>(editingEvent?.child_id?.toString() ?? '');
+  const [childIds, setChildIds] = useState<number[]>(editingEvent?.child_ids ?? []);
   const [ownerParentId, setOwnerParentId] = useState<string>(
     editingEvent?.owner_parent_id?.toString() ?? (type === 'custody' ? '' : user?.id.toString() ?? '')
   );
@@ -73,7 +73,7 @@ export default function EventModal({
         startTime: fromInputValue(start),
         endTime: fromInputValue(end),
         allDay,
-        childId: type === 'activity' && childId ? Number(childId) : null,
+        childIds: type === 'activity' ? childIds : [],
         ownerParentId: type !== 'activity' && ownerParentId ? Number(ownerParentId) : null,
       };
       if (isEditing) {
@@ -144,15 +144,31 @@ export default function EventModal({
 
         {type === 'activity' && children.length > 0 && (
           <div className="field">
-            <label htmlFor="child">Child</label>
-            <select id="child" value={childId} onChange={(e) => setChildId(e.target.value)} disabled={!isOwnEvent}>
-              <option value="">Not specific to one child</option>
+            <label>Who is this for?</label>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
               {children.map((c) => (
-                <option key={c.id} value={c.id}>
+                <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 400 }}>
+                  <input
+                    type="checkbox"
+                    style={{ width: 'auto' }}
+                    checked={childIds.includes(c.id)}
+                    disabled={!isOwnEvent}
+                    onChange={(e) => {
+                      setChildIds((prev) =>
+                        e.target.checked ? [...prev, c.id] : prev.filter((id) => id !== c.id)
+                      );
+                    }}
+                  />
+                  <span style={{ width: 8, height: 8, borderRadius: 2, background: c.color, display: 'inline-block' }} />
                   {c.name}
-                </option>
+                </label>
               ))}
-            </select>
+            </div>
+            {childIds.length === 0 && (
+              <p style={{ fontSize: 12, color: 'var(--text)', marginTop: 4 }}>
+                Leave unchecked if this isn't specific to any child.
+              </p>
+            )}
           </div>
         )}
 
