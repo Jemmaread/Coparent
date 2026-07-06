@@ -1,57 +1,72 @@
 import { Router } from "express";
 import { z } from "zod";
-import { db } from "../db/index.js";
+import { pool } from "../db/index.js";
 import { requireAuth, requireFamily } from "../middleware/requireAuth.js";
+import { ah } from "../asyncHandler.js";
 import type { ChildRow, FamilyRow, UserRow } from "../types.js";
 
 export const familyRouter = Router();
 
 familyRouter.use(requireAuth, requireFamily);
 
-familyRouter.get("/", (req, res) => {
-  const family = db
-    .prepare<[number], FamilyRow>("SELECT * FROM families WHERE id = ?")
-    .get(req.familyId!)!;
-  const members = db
-    .prepare<[number], UserRow>(
+familyRouter.get(
+  "/",
+  ah(async (req, res) => {
+    const familyResult = await pool.query<FamilyRow>("SELECT * FROM families WHERE id = $1", [
+      req.familyId!,
+    ]);
+    const family = familyResult.rows[0];
+    const memberResult = await pool.query<UserRow>(
       `SELECT u.* FROM users u
        JOIN family_members fm ON fm.user_id = u.id
-       WHERE fm.family_id = ? ORDER BY u.id ASC`
-    )
-    .all(req.familyId!)
-    .map((u) => ({ id: u.id, name: u.name, email: u.email, color: u.color }));
-  const children = db
-    .prepare<[number], ChildRow>("SELECT * FROM children WHERE family_id = ? ORDER BY id ASC")
-    .all(req.familyId!);
-  res.json({ family, members, children });
-});
+       WHERE fm.family_id = $1 ORDER BY u.id ASC`,
+      [req.familyId!]
+    );
+    const members = memberResult.rows.map((u) => ({
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      color: u.color,
+    }));
+    const childrenResult = await pool.query<ChildRow>(
+      "SELECT * FROM children WHERE family_id = $1 ORDER BY id ASC",
+      [req.familyId!]
+    );
+    res.json({ family, members, children: childrenResult.rows });
+  })
+);
 
 const childSchema = z.object({
   name: z.string().min(1).max(80),
   color: z.string().min(4).max(20).optional(),
 });
 
-familyRouter.post("/children", (req, res) => {
-  const parsed = childSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
-  }
-  const { name, color } = parsed.data;
-  const info = db
-    .prepare("INSERT INTO children (family_id, name, color) VALUES (?, ?, ?)")
-    .run(req.familyId!, name, color || "#8a5cf6");
-  const child = db
-    .prepare<[number], ChildRow>("SELECT * FROM children WHERE id = ?")
-    .get(info.lastInsertRowid as number);
-  res.status(201).json(child);
-});
+familyRouter.post(
+  "/children",
+  ah(async (req, res) => {
+    const parsed = childSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: parsed.error.issues[0]?.message ?? "Invalid input" });
+    }
+    const { name, color } = parsed.data;
+    const info = await pool.query<ChildRow>(
+      "INSERT INTO children (family_id, name, color) VALUES ($1, $2, $3) RETURNING *",
+      [req.familyId!, name, color || "#8a5cf6"]
+    );
+    res.status(201).json(info.rows[0]);
+  })
+);
 
-familyRouter.delete("/children/:id", (req, res) => {
-  const id = Number(req.params.id);
-  const child = db
-    .prepare<[number, number], ChildRow>("SELECT * FROM children WHERE id = ? AND family_id = ?")
-    .get(id, req.familyId!);
-  if (!child) return res.status(404).json({ error: "Child not found" });
-  db.prepare("DELETE FROM children WHERE id = ?").run(id);
-  res.status(204).end();
-});
+familyRouter.delete(
+  "/children/:id",
+  ah(async (req, res) => {
+    const id = Number(req.params.id);
+    const existing = await pool.query<ChildRow>(
+      "SELECT * FROM children WHERE id = $1 AND family_id = $2",
+      [id, req.familyId!]
+    );
+    if (!existing.rows[0]) return res.status(404).json({ error: "Child not found" });
+    await pool.query("DELETE FROM children WHERE id = $1", [id]);
+    res.status(204).end();
+  })
+);

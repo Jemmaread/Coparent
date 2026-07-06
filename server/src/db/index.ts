@@ -1,17 +1,21 @@
-import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import pg from "pg";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const dataDir = path.join(__dirname, "..", "..", "data");
-if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
 
-const dbPath = process.env.DATABASE_PATH || path.join(dataDir, "coparent.db");
-export const db = new Database(dbPath);
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) {
+  throw new Error("DATABASE_URL environment variable is required");
+}
 
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
+export const pool = new pg.Pool({
+  connectionString,
+  ssl: connectionString.includes("localhost") ? false : { rejectUnauthorized: false },
+});
 
-const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
-db.exec(schema);
+export async function initDb() {
+  const schema = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf-8");
+  await pool.query(schema);
+}
